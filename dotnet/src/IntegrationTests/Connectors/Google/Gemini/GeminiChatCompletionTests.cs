@@ -663,4 +663,35 @@ public sealed class GeminiChatCompletionTests(ITestOutputHelper output) : TestsB
         Assert.NotNull(streamResponses[0].Content);
         Assert.NotNull(responses[0].Content);
     }
+
+    [RetryFact(Skip = "This test is for manual verification.")]
+    public async Task GoogleAIChatReturnsResponseWorksWithIncludeThoughtsAsync()
+    {
+        // Arrange
+        var modelId = "gemini-2.0-flash-thinking-exp-1219";
+        var chatHistory = new ChatHistory();
+        chatHistory.AddUserMessage("What is 17 * 23? Think step by step.");
+
+        var sut = this.GetChatService(ServiceType.GoogleAI, isBeta: true, overrideModelId: modelId);
+        var settings = new GeminiPromptExecutionSettings
+        {
+            ThinkingConfig = new()
+            {
+                ThinkingBudget = 1000,
+                IncludeThoughts = true
+            }
+        };
+
+        // Act
+        var streamResponses = await sut.GetStreamingChatMessageContentsAsync(chatHistory, settings).ToListAsync();
+        var responses = await sut.GetChatMessageContentsAsync(chatHistory, settings);
+
+        // Assert
+        Assert.NotNull(streamResponses[0].Content);
+        Assert.NotNull(responses[0].Content);
+
+        // Check for reasoning content in responses
+        var hasReasoningContent = responses[0].Items.Any(item => item is ReasoningContent);
+        Assert.True(hasReasoningContent, "Response should contain ReasoningContent when IncludeThoughts is true");
+    }
 }

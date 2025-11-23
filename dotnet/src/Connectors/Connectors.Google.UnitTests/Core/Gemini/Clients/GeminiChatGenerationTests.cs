@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.Google;
 using Microsoft.SemanticKernel.Connectors.Google.Core;
@@ -24,18 +25,14 @@ public sealed class GeminiChatGenerationTests : IDisposable
     private readonly HttpMessageHandlerStub _messageHandlerStub;
     private readonly string _responseContentFinishReasonOther;
     private const string ChatTestDataFilePath = "./TestData/chat_one_response.json";
-    private const string ChatTestDataFinishReasonOtherFilePath =
-        "./TestData/chat_finish_reason_other_response.json";
+    private const string ChatTestDataFinishReasonOtherFilePath = "./TestData/chat_finish_reason_other_response.json";
 
     public GeminiChatGenerationTests()
     {
-        this._responseContentFinishReasonOther = File.ReadAllText(
-            ChatTestDataFinishReasonOtherFilePath
-        );
+        this._responseContentFinishReasonOther = File.ReadAllText(ChatTestDataFinishReasonOtherFilePath);
         this._messageHandlerStub = new HttpMessageHandlerStub();
         this._messageHandlerStub.ResponseToReturn.Content = new StringContent(
-            File.ReadAllText(ChatTestDataFilePath)
-        );
+            File.ReadAllText(ChatTestDataFilePath));
 
         this._httpClient = new HttpClient(this._messageHandlerStub, false);
     }
@@ -52,22 +49,17 @@ public sealed class GeminiChatGenerationTests : IDisposable
         var messages = await client.GenerateChatMessageAsync(chatHistory);
 
         // Assert
-        Assert.Single(
-            messages,
-            item =>
-                item.Role == AuthorRole.Assistant
-                && string.IsNullOrEmpty(item.Content)
-                && item.Metadata == null
-        );
+        Assert.Single(messages, item =>
+            item.Role == AuthorRole.Assistant &&
+            string.IsNullOrEmpty(item.Content) &&
+            item.Metadata == null);
     }
 
     [Fact]
     public async Task ShouldReturnEmptyMessageContentIfNoContentInResponseAsync()
     {
         // Arrange
-        this._messageHandlerStub.ResponseToReturn.Content = new StringContent(
-            this._responseContentFinishReasonOther
-        );
+        this._messageHandlerStub.ResponseToReturn.Content = new StringContent(this._responseContentFinishReasonOther);
         var client = this.CreateChatCompletionClient();
         var chatHistory = CreateSampleChatHistory();
 
@@ -75,13 +67,9 @@ public sealed class GeminiChatGenerationTests : IDisposable
         var messages = await client.GenerateChatMessageAsync(chatHistory);
 
         // Assert
-        Assert.Single(
-            messages,
-            item =>
-                item.Role == AuthorRole.Assistant
-                && string.IsNullOrEmpty(item.Content)
-                && ((GeminiMetadata)item.Metadata!).FinishReason == GeminiFinishReason.Other
-        );
+        Assert.Single(messages, item =>
+            item.Role == AuthorRole.Assistant && string.IsNullOrEmpty(item.Content) &&
+            ((GeminiMetadata)item.Metadata!).FinishReason == GeminiFinishReason.Other);
     }
 
     [Fact]
@@ -97,11 +85,7 @@ public sealed class GeminiChatGenerationTests : IDisposable
 
         // Assert
         Assert.NotNull(this._messageHandlerStub.RequestUri);
-        Assert.Contains(
-            modelId,
-            this._messageHandlerStub.RequestUri.ToString(),
-            StringComparison.Ordinal
-        );
+        Assert.Contains(modelId, this._messageHandlerStub.RequestUri.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -109,8 +93,7 @@ public sealed class GeminiChatGenerationTests : IDisposable
     {
         // Arrange
         this._messageHandlerStub.ResponseToReturn.Content = new StringContent(
-            await File.ReadAllTextAsync(ChatTestDataFilePath)
-        );
+            await File.ReadAllTextAsync(ChatTestDataFilePath));
         var client = this.CreateChatCompletionClient();
         var chatHistory = CreateSampleChatHistory();
 
@@ -118,16 +101,12 @@ public sealed class GeminiChatGenerationTests : IDisposable
         await client.GenerateChatMessageAsync(chatHistory);
 
         // Assert
-        GeminiRequest? request = JsonSerializer.Deserialize<GeminiRequest>(
-            this._messageHandlerStub.RequestContent
-        );
+        GeminiRequest? request = JsonSerializer.Deserialize<GeminiRequest>(this._messageHandlerStub.RequestContent);
         Assert.NotNull(request);
-        Assert.Collection(
-            request.Contents,
+        Assert.Collection(request.Contents,
             item => Assert.Equal(chatHistory[0].Role, item.Role),
             item => Assert.Equal(chatHistory[1].Role, item.Role),
-            item => Assert.Equal(chatHistory[2].Role, item.Role)
-        );
+            item => Assert.Equal(chatHistory[2].Role, item.Role));
     }
 
     [Fact]
@@ -158,72 +137,38 @@ public sealed class GeminiChatGenerationTests : IDisposable
 
         // Assert
         GeminiResponse testDataResponse = JsonSerializer.Deserialize<GeminiResponse>(
-            await File.ReadAllTextAsync(ChatTestDataFilePath)
-        )!;
+            await File.ReadAllTextAsync(ChatTestDataFilePath))!;
         var testDataCandidate = testDataResponse.Candidates![0];
         var textContent = chatMessageContents.SingleOrDefault();
         Assert.NotNull(textContent);
         var metadata = textContent.Metadata as GeminiMetadata;
         Assert.NotNull(metadata);
-        Assert.Equal(
-            testDataResponse.PromptFeedback!.BlockReason,
-            metadata.PromptFeedbackBlockReason
-        );
+        Assert.Equal(testDataResponse.PromptFeedback!.BlockReason, metadata.PromptFeedbackBlockReason);
         Assert.Equal(testDataCandidate.FinishReason, metadata.FinishReason);
         Assert.Equal(testDataCandidate.Index, metadata.Index);
-        Assert.True(
-            metadata.ResponseSafetyRatings!.Count == testDataCandidate.SafetyRatings!.Count
-        );
-        Assert.True(
-            metadata.PromptFeedbackSafetyRatings!.Count
-                == testDataResponse.PromptFeedback.SafetyRatings.Count
-        );
+        Assert.True(metadata.ResponseSafetyRatings!.Count
+                    == testDataCandidate.SafetyRatings!.Count);
+        Assert.True(metadata.PromptFeedbackSafetyRatings!.Count
+                    == testDataResponse.PromptFeedback.SafetyRatings.Count);
         for (var i = 0; i < metadata.ResponseSafetyRatings.Count; i++)
         {
-            Assert.Equal(
-                testDataCandidate.SafetyRatings[i].Block,
-                metadata.ResponseSafetyRatings[i].Block
-            );
-            Assert.Equal(
-                testDataCandidate.SafetyRatings[i].Category,
-                metadata.ResponseSafetyRatings[i].Category
-            );
-            Assert.Equal(
-                testDataCandidate.SafetyRatings[i].Probability,
-                metadata.ResponseSafetyRatings[i].Probability
-            );
+            Assert.Equal(testDataCandidate.SafetyRatings[i].Block, metadata.ResponseSafetyRatings[i].Block);
+            Assert.Equal(testDataCandidate.SafetyRatings[i].Category, metadata.ResponseSafetyRatings[i].Category);
+            Assert.Equal(testDataCandidate.SafetyRatings[i].Probability, metadata.ResponseSafetyRatings[i].Probability);
         }
 
         for (var i = 0; i < metadata.PromptFeedbackSafetyRatings.Count; i++)
         {
-            Assert.Equal(
-                testDataResponse.PromptFeedback.SafetyRatings[i].Block,
-                metadata.PromptFeedbackSafetyRatings[i].Block
-            );
-            Assert.Equal(
-                testDataResponse.PromptFeedback.SafetyRatings[i].Category,
-                metadata.PromptFeedbackSafetyRatings[i].Category
-            );
-            Assert.Equal(
-                testDataResponse.PromptFeedback.SafetyRatings[i].Probability,
-                metadata.PromptFeedbackSafetyRatings[i].Probability
-            );
+            Assert.Equal(testDataResponse.PromptFeedback.SafetyRatings[i].Block, metadata.PromptFeedbackSafetyRatings[i].Block);
+            Assert.Equal(testDataResponse.PromptFeedback.SafetyRatings[i].Category, metadata.PromptFeedbackSafetyRatings[i].Category);
+            Assert.Equal(testDataResponse.PromptFeedback.SafetyRatings[i].Probability, metadata.PromptFeedbackSafetyRatings[i].Probability);
         }
 
         Assert.Equal(testDataResponse.UsageMetadata!.PromptTokenCount, metadata.PromptTokenCount);
-        Assert.Equal(
-            testDataResponse.UsageMetadata!.CachedContentTokenCount,
-            metadata.CachedContentTokenCount
-        );
-        Assert.Equal(
-            testDataResponse.UsageMetadata!.ThoughtsTokenCount,
-            metadata.ThoughtsTokenCount
-        );
+        Assert.Equal(testDataResponse.UsageMetadata!.CachedContentTokenCount, metadata.CachedContentTokenCount);
+        Assert.Equal(testDataResponse.UsageMetadata!.ThoughtsTokenCount, metadata.ThoughtsTokenCount);
         Assert.Equal(testDataCandidate.TokenCount, metadata.CurrentCandidateTokenCount);
-        Assert.Equal(
-            testDataResponse.UsageMetadata.CandidatesTokenCount,
-            metadata.CandidatesTokenCount
-        );
+        Assert.Equal(testDataResponse.UsageMetadata.CandidatesTokenCount, metadata.CandidatesTokenCount);
         Assert.Equal(testDataResponse.UsageMetadata.TotalTokenCount, metadata.TotalTokenCount);
     }
 
@@ -239,77 +184,37 @@ public sealed class GeminiChatGenerationTests : IDisposable
 
         // Assert
         GeminiResponse testDataResponse = JsonSerializer.Deserialize<GeminiResponse>(
-            await File.ReadAllTextAsync(ChatTestDataFilePath)
-        )!;
+            await File.ReadAllTextAsync(ChatTestDataFilePath))!;
         var testDataCandidate = testDataResponse.Candidates![0];
         var textContent = chatMessageContents.SingleOrDefault();
         Assert.NotNull(textContent);
         var metadata = textContent.Metadata;
         Assert.NotNull(metadata);
-        Assert.Equal(
-            testDataResponse.PromptFeedback!.BlockReason,
-            metadata[nameof(GeminiMetadata.PromptFeedbackBlockReason)]
-        );
+        Assert.Equal(testDataResponse.PromptFeedback!.BlockReason, metadata[nameof(GeminiMetadata.PromptFeedbackBlockReason)]);
         Assert.Equal(testDataCandidate.FinishReason, metadata[nameof(GeminiMetadata.FinishReason)]);
         Assert.Equal(testDataCandidate.Index, metadata[nameof(GeminiMetadata.Index)]);
-        var responseSafetyRatings =
-            (IList<GeminiSafetyRating>)metadata[nameof(GeminiMetadata.ResponseSafetyRatings)]!;
+        var responseSafetyRatings = (IList<GeminiSafetyRating>)metadata[nameof(GeminiMetadata.ResponseSafetyRatings)]!;
         for (var i = 0; i < responseSafetyRatings.Count; i++)
         {
             Assert.Equal(testDataCandidate.SafetyRatings![i].Block, responseSafetyRatings[i].Block);
-            Assert.Equal(
-                testDataCandidate.SafetyRatings[i].Category,
-                responseSafetyRatings[i].Category
-            );
-            Assert.Equal(
-                testDataCandidate.SafetyRatings[i].Probability,
-                responseSafetyRatings[i].Probability
-            );
+            Assert.Equal(testDataCandidate.SafetyRatings[i].Category, responseSafetyRatings[i].Category);
+            Assert.Equal(testDataCandidate.SafetyRatings[i].Probability, responseSafetyRatings[i].Probability);
         }
 
-        var promptSafetyRatings =
-            (IList<GeminiSafetyRating>)
-                metadata[nameof(GeminiMetadata.PromptFeedbackSafetyRatings)]!;
+        var promptSafetyRatings = (IList<GeminiSafetyRating>)metadata[nameof(GeminiMetadata.PromptFeedbackSafetyRatings)]!;
         for (var i = 0; i < promptSafetyRatings.Count; i++)
         {
-            Assert.Equal(
-                testDataResponse.PromptFeedback.SafetyRatings[i].Block,
-                promptSafetyRatings[i].Block
-            );
-            Assert.Equal(
-                testDataResponse.PromptFeedback.SafetyRatings[i].Category,
-                promptSafetyRatings[i].Category
-            );
-            Assert.Equal(
-                testDataResponse.PromptFeedback.SafetyRatings[i].Probability,
-                promptSafetyRatings[i].Probability
-            );
+            Assert.Equal(testDataResponse.PromptFeedback.SafetyRatings[i].Block, promptSafetyRatings[i].Block);
+            Assert.Equal(testDataResponse.PromptFeedback.SafetyRatings[i].Category, promptSafetyRatings[i].Category);
+            Assert.Equal(testDataResponse.PromptFeedback.SafetyRatings[i].Probability, promptSafetyRatings[i].Probability);
         }
 
-        Assert.Equal(
-            testDataResponse.UsageMetadata!.PromptTokenCount,
-            metadata[nameof(GeminiMetadata.PromptTokenCount)]
-        );
-        Assert.Equal(
-            testDataResponse.UsageMetadata!.CachedContentTokenCount,
-            metadata[nameof(GeminiMetadata.CachedContentTokenCount)]
-        );
-        Assert.Equal(
-            testDataResponse.UsageMetadata!.ThoughtsTokenCount,
-            metadata[nameof(GeminiMetadata.ThoughtsTokenCount)]
-        );
-        Assert.Equal(
-            testDataCandidate.TokenCount,
-            metadata[nameof(GeminiMetadata.CurrentCandidateTokenCount)]
-        );
-        Assert.Equal(
-            testDataResponse.UsageMetadata.CandidatesTokenCount,
-            metadata[nameof(GeminiMetadata.CandidatesTokenCount)]
-        );
-        Assert.Equal(
-            testDataResponse.UsageMetadata.TotalTokenCount,
-            metadata[nameof(GeminiMetadata.TotalTokenCount)]
-        );
+        Assert.Equal(testDataResponse.UsageMetadata!.PromptTokenCount, metadata[nameof(GeminiMetadata.PromptTokenCount)]);
+        Assert.Equal(testDataResponse.UsageMetadata!.CachedContentTokenCount, metadata[nameof(GeminiMetadata.CachedContentTokenCount)]);
+        Assert.Equal(testDataResponse.UsageMetadata!.ThoughtsTokenCount, metadata[nameof(GeminiMetadata.ThoughtsTokenCount)]);
+        Assert.Equal(testDataCandidate.TokenCount, metadata[nameof(GeminiMetadata.CurrentCandidateTokenCount)]);
+        Assert.Equal(testDataResponse.UsageMetadata.CandidatesTokenCount, metadata[nameof(GeminiMetadata.CandidatesTokenCount)]);
+        Assert.Equal(testDataResponse.UsageMetadata.TotalTokenCount, metadata[nameof(GeminiMetadata.TotalTokenCount)]);
     }
 
     [Fact]
@@ -348,17 +253,12 @@ public sealed class GeminiChatGenerationTests : IDisposable
         await client.GenerateChatMessageAsync(chatHistory, executionSettings: executionSettings);
 
         // Assert
-        var geminiRequest = JsonSerializer.Deserialize<GeminiRequest>(
-            this._messageHandlerStub.RequestContent
-        );
+        var geminiRequest = JsonSerializer.Deserialize<GeminiRequest>(this._messageHandlerStub.RequestContent);
         Assert.NotNull(geminiRequest);
         Assert.Equal(executionSettings.MaxTokens, geminiRequest.Configuration!.MaxOutputTokens);
         Assert.Equal(executionSettings.Temperature, geminiRequest.Configuration!.Temperature);
         Assert.Equal(executionSettings.AudioTimestamp, geminiRequest.Configuration!.AudioTimestamp);
-        Assert.Equal(
-            executionSettings.ResponseMimeType,
-            geminiRequest.Configuration!.ResponseMimeType
-        );
+        Assert.Equal(executionSettings.ResponseMimeType, geminiRequest.Configuration!.ResponseMimeType);
         Assert.Equal(executionSettings.TopP, geminiRequest.Configuration!.TopP);
     }
 
@@ -371,8 +271,7 @@ public sealed class GeminiChatGenerationTests : IDisposable
 
         // Act & Assert
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => client.GenerateChatMessageAsync(chatHistory)
-        );
+            () => client.GenerateChatMessageAsync(chatHistory));
     }
 
     [Fact]
@@ -386,8 +285,7 @@ public sealed class GeminiChatGenerationTests : IDisposable
 
         // Act & Assert
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => client.GenerateChatMessageAsync(chatHistory)
-        );
+            () => client.GenerateChatMessageAsync(chatHistory));
     }
 
     [Fact]
@@ -403,9 +301,7 @@ public sealed class GeminiChatGenerationTests : IDisposable
         await client.GenerateChatMessageAsync(chatHistory);
 
         // Assert
-        GeminiRequest? request = JsonSerializer.Deserialize<GeminiRequest>(
-            this._messageHandlerStub.RequestContent
-        );
+        GeminiRequest? request = JsonSerializer.Deserialize<GeminiRequest>(this._messageHandlerStub.RequestContent);
         Assert.NotNull(request);
         Assert.NotNull(request.SystemInstruction);
         var systemMessage = request.SystemInstruction.Parts![0].Text;
@@ -428,18 +324,14 @@ public sealed class GeminiChatGenerationTests : IDisposable
         await client.GenerateChatMessageAsync(chatHistory);
 
         // Assert
-        GeminiRequest? request = JsonSerializer.Deserialize<GeminiRequest>(
-            this._messageHandlerStub.RequestContent
-        );
+        GeminiRequest? request = JsonSerializer.Deserialize<GeminiRequest>(this._messageHandlerStub.RequestContent);
         Assert.NotNull(request);
         Assert.NotNull(request.SystemInstruction);
         Assert.Null(request.SystemInstruction.Role);
-        Assert.Collection(
-            request.SystemInstruction.Parts!,
+        Assert.Collection(request.SystemInstruction.Parts!,
             item => Assert.Equal(messages[0], item.Text),
             item => Assert.Equal(messages[1], item.Text),
-            item => Assert.Equal(messages[2], item.Text)
-        );
+            item => Assert.Equal(messages[2], item.Text));
     }
 
     [Fact]
@@ -451,29 +343,24 @@ public sealed class GeminiChatGenerationTests : IDisposable
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(
-            () => client.GenerateChatMessageAsync(chatHistory)
-        );
+            () => client.GenerateChatMessageAsync(chatHistory));
     }
 
     [Theory]
     [InlineData(0)]
     [InlineData(-15)]
-    public async Task ShouldThrowArgumentExceptionIfExecutionSettingMaxTokensIsLessThanOneAsync(
-        int? maxTokens
-    )
+    public async Task ShouldThrowArgumentExceptionIfExecutionSettingMaxTokensIsLessThanOneAsync(int? maxTokens)
     {
         // Arrange
         var client = this.CreateChatCompletionClient();
-        GeminiPromptExecutionSettings executionSettings = new() { MaxTokens = maxTokens };
+        GeminiPromptExecutionSettings executionSettings = new()
+        {
+            MaxTokens = maxTokens
+        };
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(
-            () =>
-                client.GenerateChatMessageAsync(
-                    CreateSampleChatHistory(),
-                    executionSettings: executionSettings
-                )
-        );
+            () => client.GenerateChatMessageAsync(CreateSampleChatHistory(), executionSettings: executionSettings));
     }
 
     [Fact]
@@ -490,10 +377,7 @@ public sealed class GeminiChatGenerationTests : IDisposable
         // Assert
         Assert.NotNull(this._messageHandlerStub.RequestHeaders);
         Assert.NotNull(this._messageHandlerStub.RequestHeaders.Authorization);
-        Assert.Equal(
-            $"Bearer {bearerKey}",
-            this._messageHandlerStub.RequestHeaders.Authorization.ToString()
-        );
+        Assert.Equal($"Bearer {bearerKey}", this._messageHandlerStub.RequestHeaders.Authorization.ToString());
     }
 
     [Fact]
@@ -522,10 +406,7 @@ public sealed class GeminiChatGenerationTests : IDisposable
 
         // Assert
         Assert.NotNull(this._messageHandlerStub.RequestHeaders);
-        Assert.Equal(
-            HttpHeaderConstant.Values.UserAgent,
-            this._messageHandlerStub.RequestHeaders.UserAgent.ToString()
-        );
+        Assert.Equal(HttpHeaderConstant.Values.UserAgent, this._messageHandlerStub.RequestHeaders.UserAgent.ToString());
     }
 
     [Fact]
@@ -541,11 +422,7 @@ public sealed class GeminiChatGenerationTests : IDisposable
 
         // Assert
         Assert.NotNull(this._messageHandlerStub.RequestHeaders);
-        var header = this
-            ._messageHandlerStub.RequestHeaders.GetValues(
-                HttpHeaderConstant.Names.SemanticKernelVersion
-            )
-            .SingleOrDefault();
+        var header = this._messageHandlerStub.RequestHeaders.GetValues(HttpHeaderConstant.Names.SemanticKernelVersion).SingleOrDefault();
         Assert.NotNull(header);
         Assert.Equal(expectedVersion, header);
     }
@@ -562,9 +439,7 @@ public sealed class GeminiChatGenerationTests : IDisposable
 
         // Assert
         Assert.NotNull(this._messageHandlerStub.RequestHeaders);
-        var apiKeyHeader = this
-            ._messageHandlerStub.RequestHeaders.GetValues("x-goog-api-key")
-            .SingleOrDefault();
+        var apiKeyHeader = this._messageHandlerStub.RequestHeaders.GetValues("x-goog-api-key").SingleOrDefault();
         Assert.NotNull(apiKeyHeader);
         Assert.Equal("fake-key", apiKeyHeader);
     }
@@ -594,11 +469,7 @@ public sealed class GeminiChatGenerationTests : IDisposable
         // Arrange
         var client = this.CreateChatCompletionClient(logger: mockLogger.Object);
         var chatHistory = CreateSampleChatHistory();
-        var settings = new GeminiPromptExecutionSettings
-        {
-            ResponseMimeType = "application/json",
-            ResponseSchema = typeof(List<int>)
-        };
+        var settings = new GeminiPromptExecutionSettings { ResponseMimeType = "application/json", ResponseSchema = typeof(List<int>) };
 
         // Act
         await client.GenerateChatMessageAsync(chatHistory, settings);
@@ -609,16 +480,8 @@ public sealed class GeminiChatGenerationTests : IDisposable
         var responseBody = Encoding.UTF8.GetString(this._messageHandlerStub.RequestContent!);
 
         Assert.Contains("responseSchema", responseBody, StringComparison.Ordinal);
-        Assert.Contains(
-            "\"responseSchema\":{\"type\":\"array\",\"items\":{\"type\":\"integer\"}}",
-            responseBody,
-            StringComparison.Ordinal
-        );
-        Assert.Contains(
-            "\"responseMimeType\":\"application/json\"",
-            responseBody,
-            StringComparison.Ordinal
-        );
+        Assert.Contains("\"responseSchema\":{\"type\":\"array\",\"items\":{\"type\":\"integer\"}}", responseBody, StringComparison.Ordinal);
+        Assert.Contains("\"responseMimeType\":\"application/json\"", responseBody, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -631,17 +494,13 @@ public sealed class GeminiChatGenerationTests : IDisposable
         };
 
         var responseContent = File.ReadAllText(ChatTestDataFilePath);
-        using var content1 = new HttpResponseMessage
-        {
-            Content = new StringContent(responseContent)
-        };
-        using var content2 = new HttpResponseMessage
-        {
-            Content = new StringContent(responseContent)
-        };
+        using var content1 = new HttpResponseMessage { Content = new StringContent(responseContent) };
+        using var content2 = new HttpResponseMessage { Content = new StringContent(responseContent) };
 
-        using MultipleHttpMessageHandlerStub multipleMessageHandlerStub =
-            new() { ResponsesToReturn = [content1, content2] };
+        using MultipleHttpMessageHandlerStub multipleMessageHandlerStub = new()
+        {
+            ResponsesToReturn = [content1, content2]
+        };
         using var httpClient = new HttpClient(multipleMessageHandlerStub, false);
 
         var client = new GeminiChatCompletionClient(
@@ -650,22 +509,15 @@ public sealed class GeminiChatGenerationTests : IDisposable
             apiVersion: VertexAIVersion.V1,
             bearerTokenProvider: bearerTokenGenerator.GetBearerToken,
             location: "fake-location",
-            projectId: "fake-project-id"
-        );
+            projectId: "fake-project-id");
 
         var chatHistory = CreateSampleChatHistory();
 
         // Act
         await client.GenerateChatMessageAsync(chatHistory);
         await client.GenerateChatMessageAsync(chatHistory);
-        var firstRequestHeader = multipleMessageHandlerStub
-            .RequestHeaders[0]
-            ?.GetValues("Authorization")
-            .SingleOrDefault();
-        var secondRequestHeader = multipleMessageHandlerStub
-            .RequestHeaders[1]
-            ?.GetValues("Authorization")
-            .SingleOrDefault();
+        var firstRequestHeader = multipleMessageHandlerStub.RequestHeaders[0]?.GetValues("Authorization").SingleOrDefault();
+        var secondRequestHeader = multipleMessageHandlerStub.RequestHeaders[1]?.GetValues("Authorization").SingleOrDefault();
 
         // Assert
         Assert.NotNull(firstRequestHeader);
@@ -701,8 +553,7 @@ public sealed class GeminiChatGenerationTests : IDisposable
                 apiVersion: VertexAIVersion.V1,
                 bearerTokenProvider: bearerTokenGenerator.GetBearerToken,
                 location: maliciousLocation,
-                projectId: "fake-project-id"
-            );
+                projectId: "fake-project-id");
         });
     }
 
@@ -733,15 +584,57 @@ public sealed class GeminiChatGenerationTests : IDisposable
                 apiVersion: VertexAIVersion.V1,
                 bearerTokenProvider: bearerTokenGenerator.GetBearerToken,
                 location: validLocation,
-                projectId: "fake-project-id"
-            );
+                projectId: "fake-project-id");
         });
 
         Assert.Null(exception);
     }
 
+    private sealed class BearerTokenGenerator()
+    {
+        private int _index = 0;
+        public required List<string> BearerKeys { get; init; }
+
+        public ValueTask<string> GetBearerToken() => ValueTask.FromResult(this.BearerKeys[this._index++]);
+    }
+
+    private static ChatHistory CreateSampleChatHistory()
+    {
+        var chatHistory = new ChatHistory();
+        chatHistory.AddUserMessage("Hello");
+        chatHistory.AddAssistantMessage("Hi");
+        chatHistory.AddUserMessage("How are you?");
+        return chatHistory;
+    }
+
+    private GeminiChatCompletionClient CreateChatCompletionClient(
+        string modelId = "fake-model",
+        string? bearerKey = null,
+        HttpClient? httpClient = null,
+        ILogger? logger = null)
+    {
+        if (bearerKey is not null)
+        {
+            return new GeminiChatCompletionClient(
+                httpClient: httpClient ?? this._httpClient,
+                modelId: modelId,
+                apiVersion: VertexAIVersion.V1,
+                bearerTokenProvider: () => new ValueTask<string>(bearerKey),
+                location: "fake-location",
+                projectId: "fake-project-id",
+                logger: logger);
+        }
+
+        return new GeminiChatCompletionClient(
+            httpClient: httpClient ?? this._httpClient,
+            modelId: modelId,
+            apiVersion: GoogleAIVersion.V1,
+            apiKey: "fake-key",
+            logger: logger);
+    }
+
     [Fact]
-    public async Task ShouldProcessThoughtPartsCorrectlyAsync()
+    public async Task ShouldHandleThoughtAndTextPartsAsync()
     {
         // Arrange
         var responseJson = """
@@ -751,17 +644,15 @@ public sealed class GeminiChatGenerationTests : IDisposable
                         "content": {
                             "parts": [
                                 {
-                                    "text": "Let me think about this...",
-                                    "thought": true
+                                    "thought": true,
+                                    "text": "Let me think about this..."
                                 },
                                 {
                                     "text": "The answer is 42."
                                 }
-                            ],
-                            "role": "model"
+                            ]
                         },
-                        "finishReason": "STOP",
-                        "index": 0
+                        "finishReason": "STOP"
                     }
                 ]
             }
@@ -780,7 +671,7 @@ public sealed class GeminiChatGenerationTests : IDisposable
         Assert.Equal(2, message.Items.Count);
 
         var thoughtItem = message.Items.OfType<ReasoningContent>().Single();
-        Assert.Equal("Let me think about this...", thoughtItem.InnerContent);
+        Assert.Equal("Let me think about this...", thoughtItem.Text);
 
         var textItem = message.Items.OfType<TextContent>().Single();
         Assert.Equal("The answer is 42.", textItem.Text);
@@ -797,14 +688,12 @@ public sealed class GeminiChatGenerationTests : IDisposable
                         "content": {
                             "parts": [
                                 {
-                                    "text": "This is just a thought",
-                                    "thought": true
+                                    "thought": true,
+                                    "text": "This is just a thought"
                                 }
-                            ],
-                            "role": "model"
+                            ]
                         },
-                        "finishReason": "STOP",
-                        "index": 0
+                        "finishReason": "STOP"
                     }
                 ]
             }
@@ -819,11 +708,11 @@ public sealed class GeminiChatGenerationTests : IDisposable
 
         // Assert
         var message = messages.Single();
-        Assert.Empty(message.Content); // No text content, only thoughts
+        Assert.Empty(message.Content!); // No text content, only thoughts
         Assert.Single(message.Items);
 
         var thoughtItem = message.Items.OfType<ReasoningContent>().Single();
-        Assert.Equal("This is just a thought", thoughtItem.InnerContent);
+        Assert.Equal("This is just a thought", thoughtItem.Text);
     }
 
     [Fact]
@@ -837,21 +726,19 @@ public sealed class GeminiChatGenerationTests : IDisposable
                         "content": {
                             "parts": [
                                 {
-                                    "text": "First thought",
-                                    "thought": true
+                                    "thought": true,
+                                    "text": "First thought"
                                 },
                                 {
-                                    "text": "Second thought",
-                                    "thought": true
+                                    "thought": true,
+                                    "text": "Second thought"
                                 },
                                 {
                                     "text": "Final answer"
                                 }
-                            ],
-                            "role": "model"
+                            ]
                         },
-                        "finishReason": "STOP",
-                        "index": 0
+                        "finishReason": "STOP"
                     }
                 ]
             }
@@ -871,58 +758,11 @@ public sealed class GeminiChatGenerationTests : IDisposable
 
         var thoughtItems = message.Items.OfType<ReasoningContent>().ToList();
         Assert.Equal(2, thoughtItems.Count);
-        Assert.Equal("First thought", thoughtItems[0].InnerContent);
-        Assert.Equal("Second thought", thoughtItems[1].InnerContent);
+        Assert.Equal("First thought", thoughtItems[0].Text);
+        Assert.Equal("Second thought", thoughtItems[1].Text);
 
         var textItem = message.Items.OfType<TextContent>().Single();
         Assert.Equal("Final answer", textItem.Text);
-    }
-
-    private sealed class BearerTokenGenerator()
-    {
-        private int _index = 0;
-        public required List<string> BearerKeys { get; init; }
-
-        public ValueTask<string> GetBearerToken() =>
-            ValueTask.FromResult(this.BearerKeys[this._index++]);
-    }
-
-    private static ChatHistory CreateSampleChatHistory()
-    {
-        var chatHistory = new ChatHistory();
-        chatHistory.AddUserMessage("Hello");
-        chatHistory.AddAssistantMessage("Hi");
-        chatHistory.AddUserMessage("How are you?");
-        return chatHistory;
-    }
-
-    private GeminiChatCompletionClient CreateChatCompletionClient(
-        string modelId = "fake-model",
-        string? bearerKey = null,
-        HttpClient? httpClient = null,
-        ILogger? logger = null
-    )
-    {
-        if (bearerKey is not null)
-        {
-            return new GeminiChatCompletionClient(
-                httpClient: httpClient ?? this._httpClient,
-                modelId: modelId,
-                apiVersion: VertexAIVersion.V1,
-                bearerTokenProvider: () => new ValueTask<string>(bearerKey),
-                location: "fake-location",
-                projectId: "fake-project-id",
-                logger: logger
-            );
-        }
-
-        return new GeminiChatCompletionClient(
-            httpClient: httpClient ?? this._httpClient,
-            modelId: modelId,
-            apiVersion: GoogleAIVersion.V1,
-            apiKey: "fake-key",
-            logger: logger
-        );
     }
 
     public void Dispose()
