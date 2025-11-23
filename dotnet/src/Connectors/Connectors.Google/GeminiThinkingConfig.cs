@@ -22,12 +22,27 @@ public class GeminiThinkingConfig
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? ThinkingBudget { get; set; }
 
+    /// <summary>Whether to include thought summaries in the response.</summary>
+    /// <remarks>
+    /// <para>When set to true, the model will return thought summaries that provide insights into the model's internal reasoning process.
+    /// Thought summaries are synthesized versions of the model's raw thoughts and can be accessed by checking the 'thought' property of response parts.
+    /// </para>
+    /// This parameter is available for Gemini 2.5 and 3.0 series models that support thinking capabilities.
+    /// </remarks>
+    [JsonPropertyName("include_thoughts")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? IncludeThoughts { get; set; }
+
     /// <summary>
     /// Clones this instance.
     /// </summary>
     /// <returns></returns>
     public GeminiThinkingConfig Clone()
     {
-        return (GeminiThinkingConfig)this.MemberwiseClone();
+        return new GeminiThinkingConfig
+        {
+            ThinkingBudget = this.ThinkingBudget,
+            IncludeThoughts = this.IncludeThoughts
+        };
     }
 }

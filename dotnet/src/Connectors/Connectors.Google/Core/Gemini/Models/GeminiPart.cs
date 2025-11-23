@@ -48,17 +48,25 @@ internal sealed class GeminiPart : IJsonOnDeserialized
     public FunctionResponsePart? FunctionResponse { get; set; }
 
     /// <summary>
-    /// Checks whether only one property of the GeminiPart instance is not null.
+    /// Indicates whether this part contains thought content from the model's reasoning process.
+    /// </summary>
+    [JsonPropertyName("thought")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Thought { get; set; }
+
+    /// <summary>
+    /// Checks whether only one content property of the GeminiPart instance is not null.
     /// Returns true if only one property among Text, InlineData, FileData, FunctionCall, and FunctionResponse is not null,
-    /// Otherwise, it returns false.
+    /// Otherwise, it returns false. The Thought property can coexist with content properties.
     /// </summary>
     public bool IsValid()
     {
-        return (this.Text is not null ? 1 : 0) +
-            (this.InlineData is not null ? 1 : 0) +
-            (this.FileData is not null ? 1 : 0) +
-            (this.FunctionCall is not null ? 1 : 0) +
-            (this.FunctionResponse is not null ? 1 : 0) == 1;
+        return (this.Text is not null ? 1 : 0)
+                + (this.InlineData is not null ? 1 : 0)
+                + (this.FileData is not null ? 1 : 0)
+                + (this.FunctionCall is not null ? 1 : 0)
+                + (this.FunctionResponse is not null ? 1 : 0)
+            == 1;
     }
 
     /// <inheritdoc />
@@ -67,7 +75,8 @@ internal sealed class GeminiPart : IJsonOnDeserialized
         if (!this.IsValid())
         {
             throw new JsonException(
-                "GeminiPart is invalid. One and only one property among Text, InlineData, FileData, FunctionCall, and FunctionResponse should be set.");
+                "GeminiPart is invalid. One and only one content property among Text, InlineData, FileData, FunctionCall, and FunctionResponse should be set. The Thought property can coexist with content properties."
+            );
         }
     }
 

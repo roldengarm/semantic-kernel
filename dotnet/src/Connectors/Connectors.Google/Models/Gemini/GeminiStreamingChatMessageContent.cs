@@ -26,7 +26,8 @@ public sealed class GeminiStreamingChatMessageContent : StreamingChatMessageCont
         string modelId,
         int choiceIndex,
         GeminiFunctionToolResult? calledToolResult = null,
-        GeminiMetadata? metadata = null)
+        GeminiMetadata? metadata = null
+    )
         : base(
             role: role,
             content: content,
@@ -34,7 +35,8 @@ public sealed class GeminiStreamingChatMessageContent : StreamingChatMessageCont
             choiceIndex: choiceIndex,
             modelId: modelId,
             encoding: Encoding.UTF8,
-            metadata: metadata)
+            metadata: metadata
+        )
     {
         this.CalledToolResult = calledToolResult;
     }
@@ -54,7 +56,8 @@ public sealed class GeminiStreamingChatMessageContent : StreamingChatMessageCont
         string modelId,
         int choiceIndex,
         IReadOnlyList<GeminiFunctionToolCall>? toolCalls,
-        GeminiMetadata? metadata = null)
+        GeminiMetadata? metadata = null
+    )
         : base(
             role: role,
             content: content,
@@ -62,8 +65,47 @@ public sealed class GeminiStreamingChatMessageContent : StreamingChatMessageCont
             innerContent: content,
             choiceIndex: choiceIndex,
             encoding: Encoding.UTF8,
-            metadata: metadata)
+            metadata: metadata
+        )
     {
+        this.ToolCalls = toolCalls;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="GeminiStreamingChatMessageContent"/> class with content items.
+    /// </summary>
+    /// <param name="role">Role of the author of the message</param>
+    /// <param name="content">Content of the message</param>
+    /// <param name="modelId">The model ID used to generate the content</param>
+    /// <param name="choiceIndex">Choice index</param>
+    /// <param name="toolCalls">Tool calls returned by model</param>
+    /// <param name="items">Collection of content items including text, reasoning, etc.</param>
+    /// <param name="metadata">Additional metadata</param>
+    internal GeminiStreamingChatMessageContent(
+        AuthorRole role,
+        string? content,
+        string modelId,
+        int choiceIndex,
+        IReadOnlyList<GeminiFunctionToolCall>? toolCalls,
+        IEnumerable<StreamingKernelContent>? items,
+        GeminiMetadata? metadata = null
+    )
+        : base(
+            role: role,
+            content: content,
+            modelId: modelId,
+            choiceIndex: choiceIndex,
+            encoding: Encoding.UTF8,
+            metadata: metadata
+        )
+    {
+        if (items != null)
+        {
+            foreach (var item in items)
+            {
+                this.Items.Add(item);
+            }
+        }
         this.ToolCalls = toolCalls;
     }
 

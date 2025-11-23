@@ -96,6 +96,48 @@ public sealed class GeminiPartTests
         Assert.False(result);
     }
 
+    [Fact]
+    public void IsValidWhenTextAndThoughtAreSet()
+    {
+        // Arrange
+        var sut = new GeminiPart { Text = "thinking about this problem", Thought = true };
+
+        // Act
+        var result = sut.IsValid();
+
+        // Assert
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void IsValidWhenOnlyThoughtIsSet()
+    {
+        // Arrange - Thought property alone doesn't make it valid, needs content
+        var sut = new GeminiPart { Thought = true };
+
+        // Act
+        var result = sut.IsValid();
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    [InlineData(null)]
+    public void ThoughtPropertyCanHaveAnyValue(bool? thoughtValue)
+    {
+        // Arrange
+        var sut = new GeminiPart { Text = "some text", Thought = thoughtValue };
+
+        // Act
+        var result = sut.IsValid();
+
+        // Assert
+        Assert.True(result);
+    }
+
 #pragma warning disable CA1812 // Internal class that is apparently never instantiated; this class is used via reflection
     private sealed class GeminiPartTestData : TheoryData<GeminiPart>
 #pragma warning restore CA1812 // Internal class that is apparently never instantiated
@@ -115,26 +157,145 @@ public sealed class GeminiPartTests
             this.Add(new() { FunctionResponse = new(), FileData = new() });
 
             // Three properties
-            this.Add(new() { Text = "text", InlineData = new(), FunctionCall = new() });
-            this.Add(new() { Text = "text", InlineData = new(), FunctionResponse = new() });
-            this.Add(new() { Text = "text", InlineData = new(), FileData = new() });
-            this.Add(new() { Text = "text", FunctionCall = new(), FunctionResponse = new() });
-            this.Add(new() { Text = "text", FunctionCall = new(), FileData = new() });
-            this.Add(new() { Text = "text", FunctionResponse = new(), FileData = new() });
-            this.Add(new() { InlineData = new(), FunctionCall = new(), FunctionResponse = new() });
-            this.Add(new() { InlineData = new(), FunctionCall = new(), FileData = new() });
-            this.Add(new() { InlineData = new(), FunctionResponse = new(), FileData = new() });
-            this.Add(new() { FunctionCall = new(), FunctionResponse = new(), FileData = new() });
+            this.Add(
+                new()
+                {
+                    Text = "text",
+                    InlineData = new(),
+                    FunctionCall = new()
+                }
+            );
+            this.Add(
+                new()
+                {
+                    Text = "text",
+                    InlineData = new(),
+                    FunctionResponse = new()
+                }
+            );
+            this.Add(
+                new()
+                {
+                    Text = "text",
+                    InlineData = new(),
+                    FileData = new()
+                }
+            );
+            this.Add(
+                new()
+                {
+                    Text = "text",
+                    FunctionCall = new(),
+                    FunctionResponse = new()
+                }
+            );
+            this.Add(
+                new()
+                {
+                    Text = "text",
+                    FunctionCall = new(),
+                    FileData = new()
+                }
+            );
+            this.Add(
+                new()
+                {
+                    Text = "text",
+                    FunctionResponse = new(),
+                    FileData = new()
+                }
+            );
+            this.Add(
+                new()
+                {
+                    InlineData = new(),
+                    FunctionCall = new(),
+                    FunctionResponse = new()
+                }
+            );
+            this.Add(
+                new()
+                {
+                    InlineData = new(),
+                    FunctionCall = new(),
+                    FileData = new()
+                }
+            );
+            this.Add(
+                new()
+                {
+                    InlineData = new(),
+                    FunctionResponse = new(),
+                    FileData = new()
+                }
+            );
+            this.Add(
+                new()
+                {
+                    FunctionCall = new(),
+                    FunctionResponse = new(),
+                    FileData = new()
+                }
+            );
 
             // Four properties
-            this.Add(new() { Text = "text", InlineData = new(), FunctionCall = new(), FunctionResponse = new() });
-            this.Add(new() { Text = "text", InlineData = new(), FunctionCall = new(), FileData = new() });
-            this.Add(new() { Text = "text", InlineData = new(), FunctionResponse = new(), FileData = new() });
-            this.Add(new() { Text = "text", FunctionCall = new(), FunctionResponse = new(), FileData = new() });
-            this.Add(new() { InlineData = new(), FunctionCall = new(), FunctionResponse = new(), FileData = new() });
+            this.Add(
+                new()
+                {
+                    Text = "text",
+                    InlineData = new(),
+                    FunctionCall = new(),
+                    FunctionResponse = new()
+                }
+            );
+            this.Add(
+                new()
+                {
+                    Text = "text",
+                    InlineData = new(),
+                    FunctionCall = new(),
+                    FileData = new()
+                }
+            );
+            this.Add(
+                new()
+                {
+                    Text = "text",
+                    InlineData = new(),
+                    FunctionResponse = new(),
+                    FileData = new()
+                }
+            );
+            this.Add(
+                new()
+                {
+                    Text = "text",
+                    FunctionCall = new(),
+                    FunctionResponse = new(),
+                    FileData = new()
+                }
+            );
+            this.Add(
+                new()
+                {
+                    InlineData = new(),
+                    FunctionCall = new(),
+                    FunctionResponse = new(),
+                    FileData = new()
+                }
+            );
 
             // Five properties
-            this.Add(new() { Text = "text", InlineData = new(), FunctionCall = new(), FunctionResponse = new(), FileData = new() });
+            this.Add(
+                new()
+                {
+                    Text = "text",
+                    InlineData = new(),
+                    FunctionCall = new(),
+                    FunctionResponse = new(),
+                    FileData = new()
+                }
+            );
         }
     }
 }

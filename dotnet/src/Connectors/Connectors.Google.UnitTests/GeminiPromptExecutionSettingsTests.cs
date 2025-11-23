@@ -137,12 +137,84 @@ public sealed class GeminiPromptExecutionSettingsTests
     }
 
     [Fact]
-    public void PromptExecutionSettingsCloneWorksAsExpected()
+    public void ItCreatesGeminiExecutionSettingsFromJsonWithIncludeThoughtsSnakeCase()
     {
         // Arrange
         var category = GeminiSafetyCategory.Harassment;
         var threshold = GeminiSafetyThreshold.BlockOnlyHigh;
         string json = $$"""
+                        {
+                          "temperature": 0.7,
+                          "top_p": 0.7,
+                          "top_k": 25,
+                          "candidate_count": 2,
+                          "stop_sequences": [ "foo", "bar" ],
+                          "max_tokens": 128,
+                          "audio_timestamp": true,
+                          "safety_settings": [
+                            {
+                              "category": "{{category.Label}}",
+                              "threshold": "{{threshold.Label}}"
+                            }
+                          ],
+                          "thinking_config": {
+                            "thinking_budget": 1000,
+                            "include_thoughts": true
+                          }
+                        }
+                        """;
+        var actualSettings = JsonSerializer.Deserialize<PromptExecutionSettings>(json);
+
+        // Act
+        GeminiPromptExecutionSettings executionSettings = GeminiPromptExecutionSettings.FromExecutionSettings(actualSettings);
+
+        // Assert
+        Assert.NotNull(executionSettings);
+        Assert.Equal(0.7, executionSettings.Temperature);
+        Assert.Equal(0.7, executionSettings.TopP);
+        Assert.Equal(25, executionSettings.TopK);
+        Assert.Equal(2, executionSettings.CandidateCount);
+        Assert.Equal(["foo", "bar"], executionSettings.StopSequences);
+        Assert.Equal(128, executionSettings.MaxTokens);
+        Assert.True(executionSettings.AudioTimestamp);
+        Assert.Single(executionSettings.SafetySettings!, settings =>
+            settings.Category.Equals(category) &&
+            settings.Threshold.Equals(threshold));
+
+        Assert.Equal(1000, executionSettings.ThinkingConfig?.ThinkingBudget);
+        Assert.True(executionSettings.ThinkingConfig?.IncludeThoughts);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    [InlineData(null)]
+    public void ItHandlesIncludeThoughtsValues(bool? includeThoughts)
+    {
+        // Arrange
+        var executionSettings = new GeminiPromptExecutionSettings
+        {
+            ThinkingConfig = new GeminiThinkingConfig
+            {
+                ThinkingBudget = 1024,
+                IncludeThoughts = includeThoughts
+            }
+        };
+
+        // Act
+        var converted = GeminiPromptExecutionSettings.FromExecutionSettings(executionSettings);
+
+        // Assert
+        Assert.Equal(includeThoughts, converted.ThinkingConfig?.IncludeThoughts);
+    }
+
+    [Fact]
+    public void PromptExecutionSettingsCloneWorksAsExpected()
+    {
+        // Arrange
+        var category = GeminiSafetyCategory.Harassment;
+        var threshold = GeminiSafetyThreshold.BlockOnlyHigh;
+                        string json = $$"""
                         {
                           "model_id": "gemini-pro",
                           "temperature": 0.7,
@@ -159,13 +231,12 @@ public sealed class GeminiPromptExecutionSettingsTests
                             }
                           ],
                           "thinking_config": {
-                            "thinking_budget": 1000
+                            "thinking_budget": 1000,
+                            "include_thoughts": true
                           }
                         }
                         """;
-        var executionSettings = JsonSerializer.Deserialize<GeminiPromptExecutionSettings>(json);
-
-        // Act
+        var executionSettings = JsonSerializer.Deserialize<GeminiPromptExecutionSettings>(json);        // Act
         var clone = executionSettings!.Clone() as GeminiPromptExecutionSettings;
 
         // Assert
@@ -177,6 +248,7 @@ public sealed class GeminiPromptExecutionSettingsTests
         Assert.Equivalent(executionSettings.SafetySettings, clone.SafetySettings);
         Assert.Equal(executionSettings.AudioTimestamp, clone.AudioTimestamp);
         Assert.Equivalent(executionSettings.ThinkingConfig, clone.ThinkingConfig);
+        Assert.Equal(executionSettings.ThinkingConfig?.IncludeThoughts, clone.ThinkingConfig?.IncludeThoughts);
     }
 
     [Fact]
@@ -202,7 +274,8 @@ public sealed class GeminiPromptExecutionSettingsTests
                             }
                           ],
                           "thinking_config": {
-                            "thinking_budget": 1000
+                            "thinking_budget": 1000,
+                            "include_thoughts": false
                           }
                         }
                         """;

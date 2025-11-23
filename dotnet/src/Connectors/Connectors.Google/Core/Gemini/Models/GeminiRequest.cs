@@ -15,13 +15,8 @@ namespace Microsoft.SemanticKernel.Connectors.Google.Core;
 internal sealed class GeminiRequest
 {
     private static JsonSerializerOptions? s_options;
-    private static readonly AIJsonSchemaCreateOptions s_schemaConfiguration = new()
-    {
-        TransformOptions = new()
-        {
-            UseNullableKeyword = true,
-        }
-    };
+    private static readonly AIJsonSchemaCreateOptions s_schemaConfiguration =
+        new() { TransformOptions = new() { UseNullableKeyword = true, } };
 
     [JsonPropertyName("contents")]
     public IList<GeminiContent> Contents { get; set; } = null!;
@@ -70,7 +65,8 @@ internal sealed class GeminiRequest
     /// <returns>A new instance of <see cref="GeminiRequest"/>.</returns>
     public static GeminiRequest FromPromptAndExecutionSettings(
         string prompt,
-        GeminiPromptExecutionSettings executionSettings)
+        GeminiPromptExecutionSettings executionSettings
+    )
     {
         GeminiRequest obj = CreateGeminiRequest(prompt);
         AddSafetySettings(executionSettings, obj);
@@ -87,7 +83,8 @@ internal sealed class GeminiRequest
     /// <returns>A new instance of <see cref="GeminiRequest"/>.</returns>
     public static GeminiRequest FromChatHistoryAndExecutionSettings(
         ChatHistory chatHistory,
-        GeminiPromptExecutionSettings executionSettings)
+        GeminiPromptExecutionSettings executionSettings
+    )
     {
         GeminiRequest obj = CreateGeminiRequest(chatHistory);
         AddSafetySettings(executionSettings, obj);
@@ -98,44 +95,27 @@ internal sealed class GeminiRequest
 
     private static GeminiRequest CreateGeminiRequest(string prompt)
     {
-        GeminiRequest obj = new()
-        {
-            Contents =
-            [
-                new()
-                {
-                    Parts =
-                    [
-                        new()
-                        {
-                            Text = prompt
-                        }
-                    ]
-                }
-            ]
-        };
+        GeminiRequest obj = new() { Contents = [new() { Parts = [new() { Text = prompt }] }] };
         return obj;
     }
 
     private static GeminiRequest CreateGeminiRequest(ChatHistory chatHistory)
     {
-        GeminiRequest obj = new()
-        {
-            Contents = chatHistory
-                .Where(message => message.Role != AuthorRole.System)
-                .Select(CreateGeminiContentFromChatMessage).ToList(),
-            SystemInstruction = CreateSystemMessages(chatHistory)
-        };
+        GeminiRequest obj =
+            new()
+            {
+                Contents = chatHistory
+                    .Where(message => message.Role != AuthorRole.System)
+                    .Select(CreateGeminiContentFromChatMessage)
+                    .ToList(),
+                SystemInstruction = CreateSystemMessages(chatHistory)
+            };
         return obj;
     }
 
     private static GeminiContent CreateGeminiContentFromChatMessage(ChatMessageContent message)
     {
-        return new GeminiContent
-        {
-            Parts = CreateGeminiParts(message),
-            Role = message.Role
-        };
+        return new GeminiContent { Parts = CreateGeminiParts(message), Role = message.Role };
     }
 
     private static GeminiContent? CreateSystemMessages(ChatHistory chatHistory)
@@ -146,10 +126,7 @@ internal sealed class GeminiRequest
             return null;
         }
 
-        return new GeminiContent
-        {
-            Parts = CreateGeminiParts(contents)
-        };
+        return new GeminiContent { Parts = CreateGeminiParts(contents) };
     }
 
     public void AddChatMessage(ChatMessageContent message)
@@ -185,26 +162,28 @@ internal sealed class GeminiRequest
         {
             case GeminiChatMessageContent { CalledToolResults: not null } contentWithCalledTools:
                 // Add all function responses as separate parts in a single message
-                parts.AddRange(contentWithCalledTools.CalledToolResults.Select(toolResult =>
-                    new GeminiPart
+                parts.AddRange(
+                    contentWithCalledTools.CalledToolResults.Select(toolResult => new GeminiPart
                     {
                         FunctionResponse = new GeminiPart.FunctionResponsePart
                         {
                             FunctionName = toolResult.FullyQualifiedName,
                             Response = new(toolResult.FunctionResult.GetValue<object>())
                         }
-                    }));
+                    })
+                );
                 break;
             case GeminiChatMessageContent { ToolCalls: not null } contentWithToolCalls:
-                parts.AddRange(contentWithToolCalls.ToolCalls.Select(toolCall =>
-                    new GeminiPart
+                parts.AddRange(
+                    contentWithToolCalls.ToolCalls.Select(toolCall => new GeminiPart
                     {
                         FunctionCall = new GeminiPart.FunctionCallPart
                         {
                             FunctionName = toolCall.FullyQualifiedName,
                             Arguments = JsonSerializer.SerializeToNode(toolCall.Arguments),
                         }
-                    }));
+                    })
+                );
                 break;
             default:
                 parts.AddRange(content.Items.Select(GetGeminiPartFromKernelContent));
@@ -219,14 +198,18 @@ internal sealed class GeminiRequest
         return parts;
     }
 
-    private static GeminiPart GetGeminiPartFromKernelContent(KernelContent item) => item switch
-    {
-        TextContent textContent => new GeminiPart { Text = textContent.Text },
-        ImageContent imageContent => CreateGeminiPartFromImage(imageContent),
-        AudioContent audioContent => CreateGeminiPartFromAudio(audioContent),
-        BinaryContent binaryContent => CreateGeminiPartFromBinary(binaryContent),
-        _ => throw new NotSupportedException($"Unsupported content type. {item.GetType().Name} is not supported by Gemini.")
-    };
+    private static GeminiPart GetGeminiPartFromKernelContent(KernelContent item) =>
+        item switch
+        {
+            TextContent textContent => new GeminiPart { Text = textContent.Text },
+            ImageContent imageContent => CreateGeminiPartFromImage(imageContent),
+            AudioContent audioContent => CreateGeminiPartFromAudio(audioContent),
+            BinaryContent binaryContent => CreateGeminiPartFromBinary(binaryContent),
+            _
+                => throw new NotSupportedException(
+                    $"Unsupported content type. {item.GetType().Name} is not supported by Gemini."
+                )
+        };
 
     private static GeminiPart CreateGeminiPartFromImage(ImageContent imageContent)
     {
@@ -250,7 +233,9 @@ internal sealed class GeminiRequest
                 FileData = new GeminiPart.FileDataPart
                 {
                     MimeType = GetMimeTypeFromImageContent(imageContent),
-                    FileUri = imageContent.Uri ?? throw new InvalidOperationException("Image content URI is empty.")
+                    FileUri =
+                        imageContent.Uri
+                        ?? throw new InvalidOperationException("Image content URI is empty.")
                 }
             };
         }
@@ -261,7 +246,7 @@ internal sealed class GeminiRequest
     private static string GetMimeTypeFromImageContent(ImageContent imageContent)
     {
         return imageContent.MimeType
-               ?? throw new InvalidOperationException("Image content MimeType is empty.");
+            ?? throw new InvalidOperationException("Image content MimeType is empty.");
     }
 
     private static GeminiPart CreateGeminiPartFromAudio(AudioContent audioContent)
@@ -286,7 +271,9 @@ internal sealed class GeminiRequest
                 FileData = new GeminiPart.FileDataPart
                 {
                     MimeType = GetMimeTypeFromAudioContent(audioContent),
-                    FileUri = audioContent.Uri ?? throw new InvalidOperationException("Audio content URI is empty.")
+                    FileUri =
+                        audioContent.Uri
+                        ?? throw new InvalidOperationException("Audio content URI is empty.")
                 }
             };
         }
@@ -297,7 +284,7 @@ internal sealed class GeminiRequest
     private static string GetMimeTypeFromAudioContent(AudioContent audioContent)
     {
         return audioContent.MimeType
-               ?? throw new InvalidOperationException("Audio content MimeType is empty.");
+            ?? throw new InvalidOperationException("Audio content MimeType is empty.");
     }
 
     private static GeminiPart CreateGeminiPartFromBinary(BinaryContent binaryContent)
@@ -322,7 +309,9 @@ internal sealed class GeminiRequest
                 FileData = new GeminiPart.FileDataPart
                 {
                     MimeType = GetMimeTypeFromBinaryContent(binaryContent),
-                    FileUri = binaryContent.Uri ?? throw new InvalidOperationException("Binary content URI is empty.")
+                    FileUri =
+                        binaryContent.Uri
+                        ?? throw new InvalidOperationException("Binary content URI is empty.")
                 }
             };
         }
@@ -333,10 +322,13 @@ internal sealed class GeminiRequest
     private static string GetMimeTypeFromBinaryContent(BinaryContent binaryContent)
     {
         return binaryContent.MimeType
-               ?? throw new InvalidOperationException("Binary content MimeType is empty.");
+            ?? throw new InvalidOperationException("Binary content MimeType is empty.");
     }
 
-    private static void AddConfiguration(GeminiPromptExecutionSettings executionSettings, GeminiRequest request)
+    private static void AddConfiguration(
+        GeminiPromptExecutionSettings executionSettings,
+        GeminiRequest request
+    )
     {
         request.Configuration = new ConfigurationElement
         {
@@ -362,11 +354,18 @@ internal sealed class GeminiRequest
         var jsonElement = responseSchemaSettings switch
         {
             JsonElement element => element,
-            Type type => CreateSchema(type, GetDefaultOptions(), configuration: s_schemaConfiguration),
+            Type type
+                => CreateSchema(type, GetDefaultOptions(), configuration: s_schemaConfiguration),
             KernelJsonSchema kernelJsonSchema => kernelJsonSchema.RootElement,
             JsonNode jsonNode => JsonSerializer.SerializeToElement(jsonNode, GetDefaultOptions()),
-            JsonDocument jsonDocument => JsonSerializer.SerializeToElement(jsonDocument, GetDefaultOptions()),
-            _ => CreateSchema(responseSchemaSettings.GetType(), GetDefaultOptions(), configuration: s_schemaConfiguration)
+            JsonDocument jsonDocument
+                => JsonSerializer.SerializeToElement(jsonDocument, GetDefaultOptions()),
+            _
+                => CreateSchema(
+                    responseSchemaSettings.GetType(),
+                    GetDefaultOptions(),
+                    configuration: s_schemaConfiguration
+                )
         };
 
         jsonElement = TransformToOpenApi3Schema(jsonElement);
@@ -403,14 +402,20 @@ internal sealed class GeminiRequest
                 obj.Remove("additionalProperties");
             }
 
-            if (obj.TryGetPropertyValue("properties", out JsonNode? propsNode) && propsNode is JsonObject properties)
+            if (
+                obj.TryGetPropertyValue("properties", out JsonNode? propsNode)
+                && propsNode is JsonObject properties
+            )
             {
                 foreach (var property in properties)
                 {
                     if (property.Value is JsonObject propertyObj)
                     {
                         // Handle enum properties - add "type": "string" if missing
-                        if (propertyObj.TryGetPropertyValue("enum", out JsonNode? enumNode) && !propertyObj.ContainsKey("type"))
+                        if (
+                            propertyObj.TryGetPropertyValue("enum", out JsonNode? enumNode)
+                            && !propertyObj.ContainsKey("type")
+                        )
                         {
                             propertyObj["type"] = JsonValue.Create("string");
                         }
@@ -418,7 +423,10 @@ internal sealed class GeminiRequest
                         {
                             if (typeNode is JsonArray typeArray)
                             {
-                                var types = typeArray.Select(t => t?.GetValue<string>()).Where(t => t != null).ToList();
+                                var types = typeArray
+                                    .Select(t => t?.GetValue<string>())
+                                    .Where(t => t != null)
+                                    .ToList();
                                 if (types.Contains("null"))
                                 {
                                     var mainType = types.First(t => t != "null");
@@ -426,12 +434,25 @@ internal sealed class GeminiRequest
                                     propertyObj["nullable"] = JsonValue.Create(true);
                                 }
                             }
-                            else if (typeNode is JsonValue typeValue && typeValue.GetValue<string>() == "array")
+                            else if (
+                                typeNode is JsonValue typeValue
+                                && typeValue.GetValue<string>() == "array"
+                            )
                             {
-                                if (propertyObj.TryGetPropertyValue("items", out JsonNode? itemsNode) && itemsNode is JsonObject itemsObj)
+                                if (
+                                    propertyObj.TryGetPropertyValue(
+                                        "items",
+                                        out JsonNode? itemsNode
+                                    ) && itemsNode is JsonObject itemsObj
+                                )
                                 {
                                     // Ensure AnyOf array is considered
-                                    if (itemsObj.TryGetPropertyValue("anyOf", out JsonNode? anyOfNode) && anyOfNode is JsonArray anyOfArray)
+                                    if (
+                                        itemsObj.TryGetPropertyValue(
+                                            "anyOf",
+                                            out JsonNode? anyOfNode
+                                        ) && anyOfNode is JsonArray anyOfArray
+                                    )
                                     {
                                         foreach (var anyOfObj in anyOfArray.OfType<JsonObject>())
                                         {
@@ -458,21 +479,28 @@ internal sealed class GeminiRequest
         Type type,
         JsonSerializerOptions options,
         string? description = null,
-        AIJsonSchemaCreateOptions? configuration = null)
+        AIJsonSchemaCreateOptions? configuration = null
+    )
     {
         configuration ??= s_schemaConfiguration;
-        return AIJsonUtilities.CreateJsonSchema(type, description, serializerOptions: options, inferenceOptions: configuration);
+        return AIJsonUtilities.CreateJsonSchema(
+            type,
+            description,
+            serializerOptions: options,
+            inferenceOptions: configuration
+        );
     }
 
     internal static JsonSerializerOptions GetDefaultOptions()
     {
         if (s_options is null)
         {
-            JsonSerializerOptions options = new()
-            {
-                TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
-                Converters = { new JsonStringEnumConverter() },
-            };
+            JsonSerializerOptions options =
+                new()
+                {
+                    TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
+                    Converters = { new JsonStringEnumConverter() },
+                };
             options.MakeReadOnly();
             s_options = options;
         }
@@ -480,13 +508,20 @@ internal sealed class GeminiRequest
         return s_options;
     }
 
-    private static void AddSafetySettings(GeminiPromptExecutionSettings executionSettings, GeminiRequest request)
+    private static void AddSafetySettings(
+        GeminiPromptExecutionSettings executionSettings,
+        GeminiRequest request
+    )
     {
-        request.SafetySettings = executionSettings.SafetySettings?.Select(s
-            => new GeminiSafetySetting(s.Category, s.Threshold)).ToList();
+        request.SafetySettings = executionSettings
+            .SafetySettings?.Select(s => new GeminiSafetySetting(s.Category, s.Threshold))
+            .ToList();
     }
 
-    private static void AddAdditionalBodyFields(GeminiPromptExecutionSettings executionSettings, GeminiRequest request)
+    private static void AddAdditionalBodyFields(
+        GeminiPromptExecutionSettings executionSettings,
+        GeminiRequest request
+    )
     {
         request.CachedContent = executionSettings.CachedContent;
 
@@ -498,7 +533,11 @@ internal sealed class GeminiRequest
         if (executionSettings.ThinkingConfig is not null)
         {
             request.Configuration ??= new ConfigurationElement();
-            request.Configuration.ThinkingConfig = new GeminiRequestThinkingConfig { ThinkingBudget = executionSettings.ThinkingConfig.ThinkingBudget };
+            request.Configuration.ThinkingConfig = new GeminiRequestThinkingConfig
+            {
+                ThinkingBudget = executionSettings.ThinkingConfig.ThinkingBudget,
+                IncludeThoughts = executionSettings.ThinkingConfig.IncludeThoughts
+            };
         }
     }
 
@@ -550,5 +589,9 @@ internal sealed class GeminiRequest
         [JsonPropertyName("thinkingBudget")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public int? ThinkingBudget { get; set; }
+
+        [JsonPropertyName("includeThoughts")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? IncludeThoughts { get; set; }
     }
 }
