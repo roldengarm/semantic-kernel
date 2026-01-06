@@ -26,17 +26,12 @@ public static class Program
 
         Console.WriteLine("=== Gemini Function Calling Demo ===\n");
 
-        var workingModelId = "gemini-2.0-flash-exp";
-        var modelWithoutFunctionCalls = "gemini-3-flash-preview";
-        var modelBadRequest = "gemini-3.0-pro-preview";
-        Console.WriteLine("Running with working model...\n");
-        await RunAsync(workingModelId, apiKey).ConfigureAwait(false);
+        //var gemini2Model = "gemini-2.0-flash-exp";
+        var gemini3Model1 = "gemini-3-pro-preview";
+        var gemini3Model2 = "gemini-3-flash-preview";
 
-        Console.WriteLine("\n\nRunning with model that does not support function calls...\n");
-        await RunAsync(modelWithoutFunctionCalls, apiKey).ConfigureAwait(false);
-
-        // Console.WriteLine("\n\nRunning with model that gives bad request for function calls...\n");
-        // await RunAsync(modelBadRequest, apiKey).ConfigureAwait(false);
+        await RunAsync(gemini3Model1, apiKey).ConfigureAwait(false);
+        await RunAsync(gemini3Model2, apiKey).ConfigureAwait(false);
     }
 
     private static async Task RunAsync(string modelId, string apiKey)
@@ -66,7 +61,7 @@ public static class Program
         {
             MaxTokens = 1000,
             ToolCallBehavior = GeminiToolCallBehavior.AutoInvokeKernelFunctions,
-            // ThinkingConfig = new GeminiThinkingConfig { IncludeThoughts = true, ThinkingBudget = 1000, ThinkingLevel = "high" }
+            ThinkingConfig = new GeminiThinkingConfig { IncludeThoughts = true, ThinkingBudget = 1000 }
         };
 
         // Create chat history
