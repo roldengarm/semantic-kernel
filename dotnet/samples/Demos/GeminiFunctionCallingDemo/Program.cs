@@ -35,18 +35,24 @@ public static class Program
         Console.WriteLine("\n\nRunning with model that does not support function calls...\n");
         await RunAsync(modelWithoutFunctionCalls, apiKey).ConfigureAwait(false);
 
-        Console.WriteLine("\n\nRunning with model that gives bad request for function calls...\n");
-        await RunAsync(modelBadRequest, apiKey).ConfigureAwait(false);
+        // Console.WriteLine("\n\nRunning with model that gives bad request for function calls...\n");
+        // await RunAsync(modelBadRequest, apiKey).ConfigureAwait(false);
     }
 
     private static async Task RunAsync(string modelId, string apiKey)
     {
+        Console.WriteLine($"Model: {modelId}\n");
+
+        // Create logging handler to capture HTTP requests/responses
+        var loggingHandler = new HttpLoggingHandler();
+        var httpClient = new HttpClient(loggingHandler);
 
         // Create kernel with Gemini chat completion
         var kernel = Kernel.CreateBuilder()
             .AddGoogleAIGeminiChatCompletion(
                 modelId: modelId,
-                apiKey: apiKey)
+                apiKey: apiKey,
+                httpClient: httpClient)
             .Build();
 
         // Register the Echo plugin
@@ -83,12 +89,16 @@ public static class Program
         // Stream the response
         Console.WriteLine("Response:");
         var responseBuilder = new System.Text.StringBuilder();
+        var streamCount = 0;
         await foreach (var result in chatService.GetStreamingChatMessageContentsAsync(chatHistory, settings, kernel).ConfigureAwait(false))
         {
+            streamCount++;
+            Console.WriteLine($"\n[Stream chunk #{streamCount}]");
+
             var content = result.Content;
             if (!string.IsNullOrEmpty(content))
             {
-                Console.Write(content);
+                Console.Write($"Content: {content}");
                 responseBuilder.Append(content);
             }
 
@@ -106,7 +116,7 @@ public static class Program
             {
                 if (geminiContent.ToolCalls != null && geminiContent.ToolCalls.Any())
                 {
-                    Console.WriteLine("\n\n[Function calls detected:]");
+                    Console.WriteLine("\n[Function calls detected in this chunk:]");
                     foreach (var toolCall in geminiContent.ToolCalls)
                     {
                         Console.WriteLine($"  - {toolCall.FullyQualifiedName}");
@@ -115,9 +125,12 @@ public static class Program
                             Console.WriteLine($"    Arguments: {System.Text.Json.JsonSerializer.Serialize(toolCall.Arguments)}");
                         }
                     }
+                    Console.WriteLine("[NOTE: Auto-invoke should call these functions after this stream ends]");
                 }
             }
         }
+
+        Console.WriteLine($"\n[Total stream chunks received: {streamCount}]");
 
         Console.WriteLine("\n\n=== Conversation Complete ===");
         Console.WriteLine($"\nFinal chat history count: {chatHistory.Count} messages");

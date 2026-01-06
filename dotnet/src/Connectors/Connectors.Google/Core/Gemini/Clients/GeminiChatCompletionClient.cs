@@ -362,28 +362,65 @@ internal sealed class GeminiChatCompletionClient : ClientBase
                 var messageContent = chatResponsesEnumerator.Current;
                 if (state.AutoInvoke && messageContent.ToolCalls is { Count: > 0 })
                 {
-                    if (await chatResponsesEnumerator.MoveNextAsync().ConfigureAwait(false))
+                    // Accumulate all tool calls from streaming chunks (needed for Gemini 3 with thought signatures)
+                    // where multiple chunks may each contain function calls
+                    var allToolCalls = new List<GeminiFunctionToolCall>(messageContent.ToolCalls);
+                    var combinedContent = new System.Text.StringBuilder(messageContent.Content ?? string.Empty);
+                    GeminiMetadata? lastMetadata = messageContent.Metadata as GeminiMetadata;
+
+                    // Yield the first chunk
+                    yield return this.GetStreamingChatContentFromChatContent(messageContent);
+
+                    // Check if there are more messages - accumulate tool calls from subsequent chunks
+                    while (await chatResponsesEnumerator.MoveNextAsync().ConfigureAwait(false))
                     {
-                        // We disable auto-invoke because we have more than one message in the stream.
-                        // This scenario should not happen but I leave it as a precaution
-                        state.AutoInvoke = false;
-                        // We return the first message
-                        yield return this.GetStreamingChatContentFromChatContent(messageContent);
-                        // We return the second message
-                        messageContent = chatResponsesEnumerator.Current;
-                        yield return this.GetStreamingChatContentFromChatContent(messageContent);
-                        continue;
+                        var nextMessage = chatResponsesEnumerator.Current;
+
+                        // If the next message has tool calls, accumulate them
+                        if (nextMessage.ToolCalls is { Count: > 0 })
+                        {
+                            allToolCalls.AddRange(nextMessage.ToolCalls);
+                            if (!string.IsNullOrWhiteSpace(nextMessage.Content))
+                            {
+                                combinedContent.Append(nextMessage.Content);
+                            }
+                            if (nextMessage.Metadata is GeminiMetadata metadata)
+                            {
+                                lastMetadata = metadata;
+                            }
+                            // Yield this chunk too
+                            yield return this.GetStreamingChatContentFromChatContent(nextMessage);
+                        }
+                        else
+                        {
+                            // No more tool calls in this message, yield it if it has content and stop accumulating
+                            if (!string.IsNullOrWhiteSpace(nextMessage.Content))
+                            {
+                                combinedContent.Append(nextMessage.Content);
+                                yield return this.GetStreamingChatContentFromChatContent(nextMessage);
+                            }
+                            break;
+                        }
                     }
 
-                    // If function call was returned there is no more data in stream
-                    state.LastMessage = messageContent;
+                    // Create a combined message with all accumulated tool calls for auto-invoke processing
+                    // Note: We must preserve thought signatures from each tool call
+                    var combinedMessage = new GeminiChatMessageContent(
+                        role: messageContent.Role,
+                        content: combinedContent.Length > 0 ? combinedContent.ToString() : null,
+                        modelId: messageContent.ModelId ?? this._modelId,
+                        partsWithFunctionCalls: allToolCalls.Select(tc => new GeminiPart
+                        {
+                            FunctionCall = new GeminiPart.FunctionCallPart
+                            {
+                                FunctionName = tc.FullyQualifiedName,
+                                Arguments = tc.Arguments != null ? System.Text.Json.JsonSerializer.SerializeToNode(tc.Arguments) : null
+                            },
+                            ThoughtSignature = tc.ThoughtSignature
+                        }).ToArray(),
+                        metadata: lastMetadata);
 
-                    // Yield the message also if it contains text
-                    if (!string.IsNullOrWhiteSpace(messageContent.Content))
-                    {
-                        yield return this.GetStreamingChatContentFromChatContent(messageContent);
-                    }
-
+                    state.LastMessage = combinedMessage;
                     yield break;
                 }
 
